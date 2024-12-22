@@ -6,9 +6,8 @@ namespace Stardown.UI.ViewModels;
 
 internal class MainViewModel : ViewModelBase
 {
-
-    public ObservableCollection<Server> Servers { get; private set; } = new ObservableCollection<Server>();
-    public ObservableCollection<Thread> Threads { get; private set; } = new ObservableCollection<Thread>();
+    public ObservableCollection<Server> Servers { get; set; } = new ObservableCollection<Server>();
+    public ObservableCollection<Thread> Threads { get; set; } = new ObservableCollection<Thread>();
 
     private ChatViewModel _chat;
     private Server? _server;
@@ -17,9 +16,7 @@ internal class MainViewModel : ViewModelBase
     public MainViewModel()
     {
         _chat = new ChatViewModel(this);
-        
-        _server = new Server("localhost", 63063);
-        _server.ConnectHeartbeat();
+        Servers.Add(new Server("localhost", 63063)); //TODO: testing
     }
 
     public ChatViewModel Chat
@@ -44,6 +41,8 @@ internal class MainViewModel : ViewModelBase
 
         set
         {
+            value?.ConnectHeartbeat();
+            //TODO: make the server set the thread list
             this.RaiseAndSetIfChanged(ref _server, value);
         }
     }

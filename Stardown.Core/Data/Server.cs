@@ -8,7 +8,8 @@ public sealed class Server : IDisposable
     public string Address { get; private set; }
     public ushort Port { get; private set; }
 
-    private object _syncLock = new object();
+    private object _heartLock = new object();
+    private bool _heartBeating = false;
 
     private CancellationTokenSource _cts = new CancellationTokenSource();
     private CookieContainer _cookies = new CookieContainer();
@@ -87,7 +88,13 @@ public sealed class Server : IDisposable
 
     public void ConnectHeartbeat()
     {
-        Task.Run(() => Heartbeat(), _cts.Token);
+        lock (_heartLock) {
+            if (!_heartBeating)
+            {
+                _heartBeating = true;
+                Task.Run(() => Heartbeat(), _cts.Token);
+            }
+        }
     }
 
     public void SendMessage(Guid threadUuid, String contents, Guid? replyMessageUuid = null)
@@ -137,12 +144,17 @@ public sealed class Server : IDisposable
             var bytes = new byte[17];
             await heartbeat.ReceiveAsync(bytes, default);
 
-            lock (_syncLock)
+            lock (_heartLock)
             {
                 _updatedThreads.Append(new Guid(bytes.AsSpan(1, 16)));
             }
         }
 
         await heartbeat.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client closed", default);
+
+        lock (_heartLock)
+        {
+            _heartBeating = false;
+        }
     }
 }
