@@ -1,6 +1,6 @@
 ﻿using ReactiveUI;
 
-namespace Stardown.Core.ViewModels
+namespace Stardown.UI.ViewModels
 {
     internal class ChatMessageViewModel : ViewModelBase
     {

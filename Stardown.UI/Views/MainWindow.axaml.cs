@@ -1,6 +1,6 @@
 ﻿using Avalonia.Controls;
 
-namespace Stardown.Core.Views;
+namespace Stardown.UI.Views;
 
 public partial class MainWindow : Window
 {

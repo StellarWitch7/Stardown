@@ -1,11 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Stardown.UI.ViewModels;
+using Stardown.UI.Views;
 
-using Stardown.Core.ViewModels;
-using Stardown.Core.Views;
-
-namespace Stardown.Core;
+namespace Stardown.UI;
 
 public partial class App : Application
 {

@@ -1,6 +1,6 @@
 ﻿using ReactiveUI;
 
-namespace Stardown.Core.ViewModels;
+namespace Stardown.UI.ViewModels;
 
 public class ViewModelBase : ReactiveObject
 {

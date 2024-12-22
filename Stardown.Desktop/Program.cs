@@ -2,7 +2,7 @@
 
 using Avalonia;
 using Avalonia.ReactiveUI;
-using Stardown.Core;
+using Stardown.UI;
 
 namespace Stardown.Desktop;
 

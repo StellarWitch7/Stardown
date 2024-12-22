@@ -1,12 +1,8 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
-using Stardown.Core.Services;
-using Stardown.Core.ViewModels;
+using Stardown.UI.ViewModels;
 
-namespace Stardown.Core.Views;
+namespace Stardown.UI.Views;
 
 public partial class ChatView : UserControl
 {
@@ -14,7 +10,7 @@ public partial class ChatView : UserControl
     {
         InitializeComponent();
 
-        CommunicationService.Instance.MessageReceived += OnMessageReceived;
+        // CommunicationService.Instance.MessageReceived += OnMessageReceived;
     }
 
     public void OnEditKeyUp(object sender, KeyEventArgs args)
@@ -28,10 +24,10 @@ public partial class ChatView : UserControl
         }
     }
 
-    void OnMessageReceived(object sender, MessageReceivedEventArgs args)
-    {
-        Dispatcher.UIThread.Invoke(() => {
-            scrollViewer.ScrollToEnd();
-        });
-    }
+    // void OnMessageReceived(object sender, MessageReceivedEventArgs args)
+    // {
+    //     Dispatcher.UIThread.Invoke(() => {
+    //         scrollViewer.ScrollToEnd();
+    //     });
+    // }
 }
