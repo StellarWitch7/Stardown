@@ -1,62 +1,50 @@
 ﻿using System.Collections.ObjectModel;
-using ReactiveUI;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using DesktopNotifications;
 using Stardown.Core.Data;
 
 namespace Stardown.UI.ViewModels;
 
-internal class MainViewModel : ViewModelBase
+internal partial class MainViewModel : ViewModelBase
 {
     public ObservableCollection<Server> Servers { get; set; } = new ObservableCollection<Server>();
     public ObservableCollection<Thread> Threads { get; set; } = new ObservableCollection<Thread>();
 
+    [ObservableProperty]
     private ChatViewModel _chat;
+    [ObservableProperty]
     private Server? _server;
+    [ObservableProperty]
     private Thread? _thread;
 
     public MainViewModel()
     {
         _chat = new ChatViewModel(this);
-        Servers.Add(new Server("localhost", 63063)); //TODO: testing
+        Servers.Add(new Server("test", "localhost", 63063)); //TODO: testing
     }
 
-    public ChatViewModel Chat
-    {
-        get
-        {
-            return _chat;
-        }
 
-        set
-        {
-            this.RaiseAndSetIfChanged(ref _chat, value);
-        }
+    partial void OnServerChanging(Server? value)
+    {
+        value?.ConnectHeartbeat(GetPassword, OnMessageReceived);
     }
 
-    public Server? Server
+    async Task<string> GetPassword(string purpose)
     {
-        get
-        {
-            return _server;
-        }
-
-        set
-        {
-            value?.ConnectHeartbeat();
-            //TODO: make the server set the thread list
-            this.RaiseAndSetIfChanged(ref _server, value);
-        }
+        return "test"; //TODO: uh thing (https://docs.avaloniaui.net/docs/tutorials/music-store-app/opening-a-dialog)
     }
 
-    public Thread? Thread
+    async Task OnMessageReceived(Server server, Message message)
     {
-        get
+        var sender = await server.FetchUser(message.SenderUuid);
+        var thread = await server.FetchThread(message.ThreadUuid);
+        var notification = new Notification()
         {
-            return _thread;
-        }
+            Title = $"#{thread.Name}",
+            Body = $"{sender.Name}: {message.Contents}"
+        };
 
-        set
-        {
-            this.RaiseAndSetIfChanged(ref _thread, value);
-        }
+        await Notifier.Manager.ShowNotification(notification);
     }
 }

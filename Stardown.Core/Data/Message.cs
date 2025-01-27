@@ -1,6 +1,8 @@
+using PeterO.Cbor;
+
 namespace Stardown.Core.Data;
 
-public class Message
+public sealed class Message
 {
     public Guid Uuid { get; set; }
     public Guid ThreadUuid { get; set; }
@@ -17,5 +19,15 @@ public class Message
         ReplyMessageUuid = replyMessageUuid;
         SentTime = sentTime;
         Contents = contents;
+    }
+
+    public Message(CBORObject obj)
+    {
+        Uuid = (Guid) obj["uuid"].ToObject(typeof(Guid));
+        ThreadUuid = (Guid) obj["thread_uuid"].ToObject(typeof(Guid));
+        SenderUuid = (Guid) obj["sender_uuid"].ToObject(typeof(Guid));
+        ReplyMessageUuid = (Guid?) obj.GetOrDefault("reply_message_uuid", null)?.ToObject(typeof(Guid));
+        SentTime = obj["sent_time"].AsNumber().ToInt64Checked();
+        Contents = obj["contents"].AsString();
     }
 }

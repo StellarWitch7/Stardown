@@ -9,8 +9,6 @@ public partial class ChatView : UserControl
     public ChatView()
     {
         InitializeComponent();
-
-        // CommunicationService.Instance.MessageReceived += OnMessageReceived;
     }
 
     public void OnEditKeyUp(object sender, KeyEventArgs args)
@@ -19,15 +17,8 @@ public partial class ChatView : UserControl
         {
             if (this.DataContext is ChatViewModel chatViewModel)
             {
-                chatViewModel.SendCommand.Execute(null);
+                chatViewModel.SendMessageCommand.Execute(null);
             }
         }
     }
-
-    // void OnMessageReceived(object sender, MessageReceivedEventArgs args)
-    // {
-    //     Dispatcher.UIThread.Invoke(() => {
-    //         scrollViewer.ScrollToEnd();
-    //     });
-    // }
 }

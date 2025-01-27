@@ -1,8 +1,8 @@
 ﻿using System;
 
 using Avalonia;
-using Avalonia.ReactiveUI;
 using Stardown.UI;
+using DesktopNotifications.Avalonia;
 
 namespace Stardown.Desktop;
 
@@ -20,6 +20,6 @@ class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
-            .LogToTrace()
-            .UseReactiveUI();
+            .SetupDesktopNotifications(out Stardown.UI.Notifier.Manager!)
+            .LogToTrace();
 }

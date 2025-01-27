@@ -1,10 +1,12 @@
 using System.Net;
 using System.Net.WebSockets;
+using PeterO.Cbor;
 
 namespace Stardown.Core.Data;
 
 public sealed class Server : IDisposable
 {
+    public string Username { get; private set; }
     public string Address { get; private set; }
     public ushort Port { get; private set; }
 
@@ -17,10 +19,12 @@ public sealed class Server : IDisposable
     private HttpClientHandler _httpHandler;
     private HttpClient _httpClient;
 
-    private Queue<Guid> _updatedThreads = new Queue<Guid>();
+    private Func<string, Task<string>> _getPassword = null!;
+    private Func<Server, Message, Task> _onMessageReceived = null!;
 
-    public Server(string address, ushort port)
+    public Server(string username, string address, ushort port)
     {
+        Username = username;
         Address = address;
         Port = port;
 
@@ -28,7 +32,7 @@ public sealed class Server : IDisposable
         {
             CookieContainer = _cookies
         };
-        
+
         _httpClient = new HttpClient(_httpHandler);
     }
 
@@ -72,11 +76,19 @@ public sealed class Server : IDisposable
         }
     }
 
-    public Uri ConnectUri
+    public Uri AuthUri
     {
         get
         {
-            return new Uri($"wss://{Address}:{Port}/api/connect", UriKind.Absolute);
+            return new Uri(BaseUri, "auth");
+        }
+    }
+
+    public Uri HeartUri
+    {
+        get
+        {
+            return new Uri($"wss://{Address}:{Port}/api/heart", UriKind.Absolute);
         }
     }
 
@@ -86,9 +98,12 @@ public sealed class Server : IDisposable
         _httpClient.Dispose();
     }
 
-    public void ConnectHeartbeat()
+    public void ConnectHeartbeat(Func<string, Task<string>> getPassword, Func<Server, Message, Task> onMessageReceived)
     {
         lock (_heartLock) {
+            _getPassword = getPassword;
+            _onMessageReceived = onMessageReceived;
+
             if (!_heartBeating)
             {
                 _heartBeating = true;
@@ -116,38 +131,75 @@ public sealed class Server : IDisposable
     {
         try
         {
-            await _httpClient.PostAsync(MsgUri, new FormUrlEncodedContent(formData));
+            await _httpClient.PostAsync(uri, new FormUrlEncodedContent(formData));
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
+            //TODO: better error handling
         }
     }
 
     private async Task Heartbeat()
     {
-        using var handler = new SocketsHttpHandler() { CookieContainer = _cookies };
-        using var heartbeat = new ClientWebSocket();
+        using var handler = new SocketsHttpHandler() { UseCookies = true, CookieContainer = _cookies };
+        var heartbeat = new ClientWebSocket(); // manually disposed of
+        heartbeat.Options.CollectHttpResponseDetails = true;
 
         try
         {
-            await heartbeat.ConnectAsync(ConnectUri, new HttpMessageInvoker(handler), default);
-            Console.WriteLine($"Connected to {ApiUri}");
+            Console.WriteLine($"Attempting to connect to {Address}:{Port} with current session");
+
+            try
+            {
+                await heartbeat.ConnectAsync(HeartUri, new HttpMessageInvoker(handler), default);
+            }
+            catch (Exception e)
+            {
+                if (heartbeat.HttpStatusCode == HttpStatusCode.Unauthorized)
+                {
+                    Console.WriteLine($"Session is not authorized to access {Address}:{Port}, attempting password authentication...");
+
+                    var credentials = new Dictionary<string, string>();
+                    credentials.Add("username", Username);
+
+                    var password = await _getPassword($"Authenticating to {Address}:{Port} as {Username}");
+                    credentials.Add("password", password);
+
+                    await PostForm(AuthUri, credentials);
+
+                    heartbeat = new ClientWebSocket();
+
+                    await heartbeat.ConnectAsync(HeartUri, new HttpMessageInvoker(handler), default);
+                }
+                else
+                {
+                    throw e;
+                }
+            }
+
+            Console.WriteLine($"Connected to {Address}:{Port} as {Username}");
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Console.WriteLine($"Could not connect to {Address}:{Port} due to: {e}");
+
+            //TODO: better error handling
+
+            lock (_heartLock)
+            {
+                _heartBeating = false;
+            }
+
+            return;
         }
 
         while (!_cts.Token.IsCancellationRequested)
         {
             var bytes = new byte[17];
             await heartbeat.ReceiveAsync(bytes, default);
-
-            lock (_heartLock)
-            {
-                _updatedThreads.Append(new Guid(bytes.AsSpan(1, 16)));
-            }
+            var message = await FetchMessage(new Guid(bytes.AsSpan(1, 16)));
+            await _onMessageReceived(this, message);
         }
 
         await heartbeat.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client closed", default);
@@ -156,5 +208,26 @@ public sealed class Server : IDisposable
         {
             _heartBeating = false;
         }
+    }
+
+    public async Task<Message> FetchMessage(Guid uuid)
+    {
+        var bytes = await _httpClient.GetByteArrayAsync(new Uri(MsgUri, uuid.ToString()));
+        var obj = CBORObject.DecodeFromBytes(bytes);
+        return new Message(obj);
+    }
+
+    public async Task<User> FetchUser(Guid uuid)
+    {
+        var bytes = await _httpClient.GetByteArrayAsync(new Uri(UsrUri, uuid.ToString()));
+        var obj = CBORObject.DecodeFromBytes(bytes);
+        return new User(obj);
+    }
+
+    public async Task<Thread> FetchThread(Guid uuid)
+    {
+        var bytes = await _httpClient.GetByteArrayAsync(new Uri(ThrUri, uuid.ToString()));
+        var obj = CBORObject.DecodeFromBytes(bytes);
+        return new Thread(obj);
     }
 }
