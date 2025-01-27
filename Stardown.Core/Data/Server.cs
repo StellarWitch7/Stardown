@@ -1,8 +1,9 @@
 using System.Net;
 using System.Net.WebSockets;
+using FluentUri;
 using PeterO.Cbor;
 
-namespace Stardown.Core.Data;
+namespace Stardown.Core.Data; //TODO: System.Uri is horrible, implement a custom Uri class
 
 public sealed class Server : IDisposable
 {
@@ -36,19 +37,14 @@ public sealed class Server : IDisposable
         _httpClient = new HttpClient(_httpHandler);
     }
 
-    public Uri BaseUri
+    public FluentUriBuilder BaseUri
     {
         get
         {
-            return new Uri($"https://{Address}:{Port}", UriKind.Absolute);
-        }
-    }
-
-    public Uri ApiUri
-    {
-        get
-        {
-            return new Uri(BaseUri, "api");
+            return FluentUriBuilder.Create()
+                .Scheme(UriScheme.Https)
+                .Host(Address)
+                .Port(Port);
         }
     }
 
@@ -56,7 +52,9 @@ public sealed class Server : IDisposable
     {
         get
         {
-            return new Uri(ApiUri, "thr");
+            return BaseUri
+                .Path("thr")
+                .ToUri();
         }
     }
 
@@ -64,7 +62,9 @@ public sealed class Server : IDisposable
     {
         get
         {
-            return new Uri(ApiUri, "usr");
+            return BaseUri
+                .Path("usr")
+                .ToUri();
         }
     }
 
@@ -72,7 +72,9 @@ public sealed class Server : IDisposable
     {
         get
         {
-            return new Uri(ApiUri, "msg");
+            return BaseUri
+                .Path("msg")
+                .ToUri();
         }
     }
 
@@ -80,7 +82,9 @@ public sealed class Server : IDisposable
     {
         get
         {
-            return new Uri(BaseUri, "auth");
+            return BaseUri
+                .Path("auth")
+                .ToUri();
         }
     }
 
@@ -88,7 +92,7 @@ public sealed class Server : IDisposable
     {
         get
         {
-            return new Uri($"wss://{Address}:{Port}/api/heart", UriKind.Absolute);
+            return new Uri($"wss://{Address}:{Port}/heart", UriKind.Absolute);
         }
     }
 
@@ -198,6 +202,9 @@ public sealed class Server : IDisposable
         {
             var bytes = new byte[17];
             await heartbeat.ReceiveAsync(bytes, default);
+
+            Console.WriteLine("Ba-bump");
+
             var message = await FetchMessage(new Guid(bytes.AsSpan(1, 16)));
             await _onMessageReceived(this, message);
         }
@@ -212,22 +219,34 @@ public sealed class Server : IDisposable
 
     public async Task<Message> FetchMessage(Guid uuid)
     {
-        var bytes = await _httpClient.GetByteArrayAsync(new Uri(MsgUri, uuid.ToString()));
+        var uri = new Uri($"{MsgUri}/{uuid}");
+        Console.WriteLine($"Fetching message from {uri}");
+
+        var bytes = await _httpClient.GetByteArrayAsync(uri);
         var obj = CBORObject.DecodeFromBytes(bytes);
+
         return new Message(obj);
     }
 
     public async Task<User> FetchUser(Guid uuid)
     {
-        var bytes = await _httpClient.GetByteArrayAsync(new Uri(UsrUri, uuid.ToString()));
+        var uri = new Uri($"{UsrUri}/{uuid}");
+        Console.WriteLine($"Fetching user from {uri}");
+
+        var bytes = await _httpClient.GetByteArrayAsync(uri);
         var obj = CBORObject.DecodeFromBytes(bytes);
+
         return new User(obj);
     }
 
     public async Task<Thread> FetchThread(Guid uuid)
     {
-        var bytes = await _httpClient.GetByteArrayAsync(new Uri(ThrUri, uuid.ToString()));
+        var uri = new Uri($"{ThrUri}/{uuid}");
+        Console.WriteLine($"Fetching thread from {uri}");
+
+        var bytes = await _httpClient.GetByteArrayAsync(uri);
         var obj = CBORObject.DecodeFromBytes(bytes);
+
         return new Thread(obj);
     }
 }
